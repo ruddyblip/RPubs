@@ -1,0 +1,188 @@
+---
+title: " Nube de palabras de los  Planes de Gobierno para el Departamento de Santa Cruz de CREEMOS y el  MAS (Elecciones-2021)"
+author: "Ruddy Quispe Tapia"
+date: "28/2/2021"
+output: 
+ prettydoc::html_pretty:
+     theme: architect
+     highlight: github
+     toc: yes
+     
+   
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+### Introducción
+Representar gráficamente un texto, para dar una idea de lo que contiene, en esta ocasión solo se analizara los dos primeros partidos que encabezan las elecciones a la gobernación de Sanata Cruz 2021, el Movimiento al Socialismo (MAS) liderado por Mario Cronenbold y la alianza CREEMOS que fue creada por la fusión de Acción Democrática Nacionalista, Unión Cívica Solidaridad y una facción del Movimiento Nacionalista Revolucionario, para este fin se descargo los planes de de Gobierno del  [Órgano Electoral de Santa Cruz](https://santacruz.oep.org.bo/programas-de-gobierno-elecciones-2021/) en formato PDF y luego se convirtio en formato .txt.
+
+ Establecer el directorio
+```{r echo=FALSE}
+setwd("~/PROYECTOCLOUD2021")
+```
+
+
+ Cargar las librerías
+
+```{r echo=T, message=F}
+library(NLP)
+library(tm)
+library(SnowballC)
+library(RColorBrewer)
+library(wordcloud)
+library(ggplot2)
+library(wordcloud2)
+library(RColorBrewer)
+library(readr)
+library(gridExtra)
+library(ggpubr)
+
+```
+
+### Plan  de Gobierno de  CREEMOS Y EL MAS
+
+
+```{r}
+
+MAS <- readLines("pg_departamental_santa_cruz_MAS.txt")
+#guess_encoding(MAS)
+#Encoding(MAS) <- "UTF-8"
+MAS <- parse_character(MAS, locale=locale(encoding="UTF-8"))
+#MAS= iconv(MAS, to="ASCII//TRANSLIT")
+MAS <- VCorpus(VectorSource(MAS))
+```
+
+```{r}
+CREEMOS <- readLines("pg_Departamental_santa_cruz_op_creemos.txt")
+CREEMOS <- parse_character(CREEMOS, locale=locale(encoding="UTF-8"))
+#CREEMOS = iconv(CREEMOS, to="ASCII//TRANSLIT")
+CREEMOS = VCorpus(VectorSource(CREEMOS)) 
+
+
+```
+### Limpieza del Texto 
+
+ Limpiamos nuestro texto con el comando (tm_map) del MAS
+
+```{r}
+programa <- tm_map(MAS, content_transformer(tolower))
+#quitamos los espacios en blanco
+programa = tm_map(programa, stripWhitespace)
+#quitamos la puntuacion
+programa = tm_map(programa, removePunctuation)
+#quitamos los numeros
+programa = tm_map(programa, removeNumbers)
+#mostramos palabras vacias y genericas
+stopwords("spanish")
+#quitamos palabras genericas
+programa=tm_map(programa, removeWords,stopwords("spanish"))
+
+```
+Limpiamos nuestro texto con el comando (tm_map) de CREEMOS
+
+```{r}
+programa2 <- tm_map(CREEMOS, content_transformer(tolower))
+programa2 = tm_map(programa2, stripWhitespace)
+programa2 = tm_map(programa2, removePunctuation)
+programa2 = tm_map(programa2, removeNumbers)
+stopwords("spanish")
+programa2=tm_map(programa2, removeWords,stopwords("spanish"))
+```
+
+
+### Creación de la Matriz 
+
+```{r}
+#Creamos matriz de letras del MAS
+letras= TermDocumentMatrix(programa)
+findFreqTerms(letras, lowfreq=5)
+matrix=as.matrix(letras)
+#Creamos matriz de letras del creemos
+letras2= TermDocumentMatrix(programa2)
+findFreqTerms(letras2, lowfreq=5)
+matrix2=as.matrix(letras2)
+
+```
+
+## Creación del Data-Frame 
+```{r}
+# Ordenamos y sumamos de la  matriz
+vector <- sort(rowSums(matrix),decreasing=TRUE) 
+dataletras <- data.frame(word= names(vector),frequencia=vector) 
+##  CREACION DEL DATA FRAME PARA creemos
+vector2 <- sort(rowSums(matrix2),decreasing=TRUE) 
+dataletras2 <- data.frame(word= names(vector2),frequencia=vector2) 
+
+```
+### Nube de Palabras del  PDGDSC de CREEMOS 
+
+```{r  fig.width=9, fig.height=6}
+wordcloud(words = dataletras2$word, freq = dataletras$freq, min.freq = 1.5,
+          max.words=100, random.order=FALSE, rot.per=0.2, 
+          colors=brewer.pal(8, "Dark2"))
+```
+
+### Nube de Palabras del  PDGDSC del MAS
+
+```{r  fig.width=9, fig.height=6}
+wordcloud(words = dataletras$word, freq = dataletras$freq, min.freq = 1.5,
+          max.words=100, random.order=FALSE, rot.per=0.2, 
+          colors=brewer.pal(8, "Dark2"))
+```
+
+
+
+### Sumarización de las Palabras con (ggplot2)
+
+```{r fig.width=12, fig.height=6}
+top20 <- head(dataletras, 20)
+top20$word <- reorder(top20$word, top20$freq)
+creemos20 <- head(dataletras2, 20)
+creemos20$word <- reorder(creemos20$word, creemos20$freq)
+PROMAS <- ggplot(top20, aes(x = word, y = frequencia, fill = word, label = frequencia)) +
+  geom_bar(stat="identity", show.legend = FALSE) +
+  theme_minimal()+
+  coord_flip() +
+  labs(title = "Las 20 Palabras mas utilizadas \nen el PDGDSC-Elecciones 2021", x = "Palabras", y = "Palabras contadas") +
+  geom_label(aes(fill = word),colour = "white", fontface = "bold", show.legend = FALSE)+
+  theme(plot.title = element_text(hjust = 0.5),
+         axis.text.x = element_text( color="black", size=12),
+         axis.text.y = element_text( color="black", size=12))
+PROcreemos <- ggplot(creemos20, aes(x = word, y = frequencia, fill = word, label = frequencia)) +
+  geom_bar(stat="identity", show.legend = FALSE) +
+  theme_minimal()+
+  coord_flip() +
+  labs(title = "Las 20 Palabras mas utilizadas \nen el PDGDSC-Elecciones 2021", x = "Palabras", y = "Palabras contadas") +
+  geom_label(aes(fill = word),colour = "white", fontface = "bold", show.legend = FALSE)+
+  theme(plot.title = element_text(hjust = 0.5), 
+        axis.text.x = element_text( color="black", size=12),
+         axis.text.y = element_text( color="black", size=12))
+
+figura <- ggarrange(PROMAS, PROcreemos,
+                    labels = c("CREEMOS","MAS"),
+                    ncol = 2)
+figura
+
+```
+
+### Nube de Palabras con “wordcloud2”
+El paquete “wordcloud2” presenta más opciones de graficación
+
+### MAS
+
+```{r}
+wordcloud2(dataletras, size=1.2)
+```
+
+
+### CREEMOS 
+```{r }
+wordcloud2(dataletras2, size=1.2)
+```
+
+
+
+
